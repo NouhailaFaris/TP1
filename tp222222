@@ -1,0 +1,51 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <netdb.h>
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <hostname> <port>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    const char *hostname = argv[1];
+    const char *port = argv[2];
+
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM; // Ou SOCK_STREAM selon le besoin
+
+    int status = getaddrinfo(hostname, port, &hints, &res);
+    if (status != 0) {
+        fprintf(stderr, "Erreur lors de la résolution du nom : %s\n", gai_strerror(status));
+        exit(EXIT_FAILURE);
+    }
+
+    // 'res' pointe vers une liste d'adresses, vous pouvez itérer à travers cette liste
+    // Pour cet exemple, nous supposerons qu'il n'y a qu'une seule adresse
+    struct sockaddr *addr = res->ai_addr;
+
+    // Utilisez 'addr' pour effectuer des opérations sur l'adresse, par exemple, connecter un socket
+
+    // Afficher l'adresse IP résultante
+    char ipstr[INET6_ADDRSTRLEN];
+    void *addr_ptr;
+
+    if (addr->sa_family == AF_INET) {
+        struct sockaddr_in *ipv4 = (struct sockaddr_in *)addr;
+        addr_ptr = &(ipv4->sin_addr);
+    } else {
+        struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)addr;
+        addr_ptr = &(ipv6->sin6_addr);
+    }
+
+    inet_ntop(addr->sa_family, addr_ptr, ipstr, sizeof ipstr);
+    printf("Adresse IP du serveur : %s\n", ipstr);
+
+    // N'oubliez pas de libérer la mémoire allouée par getaddrinfo
+    freeaddrinfo(res);
+
+    return 0;
+}
