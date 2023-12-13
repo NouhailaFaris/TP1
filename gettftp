@@ -1,0 +1,115 @@
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <string.h>
+
+
+int main(int argc,char *argv[]){
+	
+	int a,size,sendSize,recvSize,sck;
+	struct addrinfo hints;
+	struct addrinfo *res;
+	int Buffersize = 516;
+	char buffer[Buffersize];
+	struct sockaddr sock_addr;
+
+	
+	printf("strat \n");
+/*
+ 	opcode  operation
+            1     Read request (RRQ)
+            2     Write request (WRQ)
+            3     Data (DATA)
+            4     Acknowledgment (ACK)
+            5     Error (ERROR)
+
+   The TFTP header of a packet contains the  opcode  associated  with
+   that packet.
+
+
+
+
+
+
+
+Sollins                                                         [Page 5]
+
+ 
+RFC 1350                    TFTP Revision 2                    July 1992
+
+
+            2 bytes     string    1 byte     string   1 byte
+            ------------------------------------------------
+           | Opcode |  Filename  |   0  |    Mode    |   0  |
+            ------------------------------------------------
+
+                       Figure 5-1: RRQ/WRQ packet
+ */
+	if(argc<3){	printf("not enough argument\n");}
+	
+	
+	memset(&hints,0,sizeof(struct addrinfo));
+	printf("plante\n");
+	hints.ai_family=AF_INET;
+	hints.ai_socktype=SOCK_DGRAM;
+	hints.ai_protocol=IPPROTO_UDP;
+	printf("valeur sur hint\n");
+
+	a=getaddrinfo(argv[1],"69",&hints,&res);
+	printf("getaddrinfo= %d",a);
+	printf("\ngetaddrinfo test\n");
+	sck=socket(res->ai_family,res->ai_socktype,res->ai_protocol);
+	printf("socket= %d",sck);
+	printf("\nsocket test\n");
+	
+	
+	buffer[0]=0;
+	buffer[1]=1;
+	printf("Ouverture Buffer\n");
+	char *filename = argv[2];
+	strcpy(&buffer[2], filename);
+	strcpy(&buffer[2 + strlen(filename) + 1], "octet");
+	printf("copie argument\n");
+	size= (int)(2+strlen(filename)+1+5+1);
+	printf("definition taille\n");
+	
+	
+	
+	printf("buffer= %s\n",buffer);
+	
+	
+	sendSize = sendto(sck, buffer, size, 0, res->ai_addr, res->ai_addrlen);
+	printf("SendTo= %d\n",sendSize);
+	if(sendSize == -1){
+		printf("error while sendto: %d\n", sendSize);
+	}
+	
+	
+	int addrsize = sizeof(struct sockaddr);
+	recvSize = recvfrom(sck, buffer, Buffersize, 0, &sock_addr, &addrsize);
+	printf("recvfrom= %d\n",recvSize);
+	if(recvSize == -1){
+		printf("error while recvfrom: %d\n", recvSize);
+	}
+	
+	//int*point=buffer[1];
+    printf("buffer= %d %d %d %c %c %c %c\n", buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7]);
+	//printf("buffer= %d ",*point)
+	
+	
+
+	
+	buffer[0]=0;
+	buffer[1]=4;
+	buffer[4]=0;
+	printf("\n buffer rempli\n");
+	size = strlen(buffer);
+	printf("\n size\n");
+	sendSize = sendto(sck, buffer, size, 0, &sock_addr, sizeof(struct sockaddr));
+	printf("ACK= %d",sendSize);
+	printf("\n sendto\n");
+	return 0;
+}
