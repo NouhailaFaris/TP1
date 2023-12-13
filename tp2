@@ -1,0 +1,71 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
+
+#define MAX_BUFFER_SIZE 512
+
+// Fonction pour envoyer une requête TFTP au serveur
+void send_tftp_request(int sockfd, const char *filename, int opcode, struct sockaddr *server_addr, socklen_t addr_len) {
+    char buffer[MAX_BUFFER_SIZE];
+    int n;
+
+    // Construction du message TFTP
+    memset(buffer, 0, sizeof(buffer));
+    buffer[0] = (opcode >> 8) & 0xFF;
+    buffer[1] = opcode & 0xFF;
+    strcpy(&buffer[2], filename);
+
+    // Envoi du message au serveur
+    n = sendto(sockfd, buffer, strlen(filename) + 2, 0, server_addr, addr_len);
+    if (n == -1) {
+        perror("Erreur lors de l'envoi de la requête TFTP");
+        exit(EXIT_FAILURE);
+    }
+}
+
+int main(int argc, char *argv[]) {
+    int sockfd;
+    struct addrinfo hints, *res;
+
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s host port file\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    const char *host = argv[1];
+    const char *port = argv[2];
+    const char *filename = argv[3];
+
+    // Obtention des informations sur l'adresse du serveur
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+
+    int status = getaddrinfo(host, port, &hints, &res);
+    if (status != 0) {
+        fprintf(stderr, "Erreur lors de la résolution de l'adresse : %s\n", gai_strerror(status));
+        exit(EXIT_FAILURE);
+    }
+
+    // Création de la socket
+    sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if (sockfd == -1) {
+        perror("Erreur lors de la création de la socket");
+        exit(EXIT_FAILURE);
+    }
+
+    // Envoi de la requête TFTP au serveur
+    send_tftp_request(sockfd, filename, 1, res->ai_addr, res->ai_addrlen); // Opcode 1 pour la lecture
+
+    // Reste du code pour la mise en œuvre de la fonctionnalité du client...
+
+    freeaddrinfo(res);
+    close(sockfd);
+
+    return 0;
+}
