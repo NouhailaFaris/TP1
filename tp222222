@@ -2,19 +2,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
-
+//argv: Tableau de chaînes de caractères représentant les arguments de la ligne de commande.
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <hostname> <port>\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    const char *hostname = argv[1];
-    const char *port = argv[2];
-
+    const char *hostname = argv[1];//Contient le nom d'hôte passé en tant qu'argument de la ligne de commande.
+    const char *port = argv[2];//Contient le numéro de port passé en tant qu'argument de la ligne de commande
+// Initialisation de la structure addrinfo
+    
     struct addrinfo hints, *res;
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_UNSPEC;//Spécifie que le programme prend en charge à la fois IPv4 et IPv6 (AF_UNSPEC).
     hints.ai_socktype = SOCK_DGRAM; // Ou SOCK_STREAM selon le besoin
 
     int status = getaddrinfo(hostname, port, &hints, &res);
@@ -22,13 +18,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Erreur lors de la résolution du nom : %s\n", gai_strerror(status));
         exit(EXIT_FAILURE);
     }
-
-    // 'res' pointe vers une liste d'adresses, vous pouvez itérer à travers cette liste
-    // Pour cet exemple, nous supposerons qu'il n'y a qu'une seule adresse
     struct sockaddr *addr = res->ai_addr;
-
-    // Utilisez 'addr' pour effectuer des opérations sur l'adresse, par exemple, connecter un socket
-
     // Afficher l'adresse IP résultante
     char ipstr[INET6_ADDRSTRLEN];
     void *addr_ptr;
@@ -40,7 +30,7 @@ int main(int argc, char *argv[]) {
         struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)addr;
         addr_ptr = &(ipv6->sin6_addr);
     }
-
+//pour convertir l'adresse IP binaire en une chaîne de caractères lisible.
     inet_ntop(addr->sa_family, addr_ptr, ipstr, sizeof ipstr);
     printf("Adresse IP du serveur : %s\n", ipstr);
 
