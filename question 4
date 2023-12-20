@@ -1,46 +1,45 @@
+#include <sys/socket.h>
+#include <netdb.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 
 #define MAX_BUFFER_SIZE 516 // Taille maximale d'un paquet TFTP
 
-// Fonction pour envoyer un acquittement (ACK)
-void sendACK(int socket, struct sockaddr_in* serverAddress, uint16_t blockNumber) {
-    char ackPacket[4];
-    ackPacket[0] = 0x00;
-    ackPacket[1] = 0x04;
-    ackPacket[2] = (blockNumber >> 8) & 0xFF; // octet de poids fort
-    ackPacket[3] = blockNumber & 0xFF;        // octet de poids faible
+// ... (Déclarations et constantes)
 
-    sendto(socket, ackPacket, sizeof(ackPacket), 0, (struct sockaddr*)serverAddress, sizeof(*serverAddress));
+void sendRRQ(int sockfd, const char *fileName) {
+    // Construire une requête RRQ
+    char rrqPacket[MAX_BUFFER_SIZE];
+    buildRRQ(rrqPacket, fileName);
+
+    // Envoyer la requête au serveur
+    send(sockfd, rrqPacket, strlen(rrqPacket), 0);
 }
 
-int main() {
-    // ... (création du socket et configuration de l'adresse du serveur)
-
-    // Variables pour la réception de données
+void receiveFile(int sockfd) {
+    // Variables pour la réception des données
     char dataPacket[MAX_BUFFER_SIZE];
     struct sockaddr_in serverAddress;
     socklen_t serverAddressSize = sizeof(serverAddress);
 
     // Boucle de réception des paquets de données
-    uint16_t blockNumber = 1; // Commence à 1 pour le premier paquet
+    uint16_t blockNumber = 1;
     while (1) {
         // Réception du paquet de données
-        ssize_t bytesRead = recvfrom(clientSocket, dataPacket, sizeof(dataPacket), 0,
-                                     (struct sockaddr*)&serverAddress, &serverAddressSize);
+        ssize_t bytesRead = recvfrom(sockfd, dataPacket, sizeof(dataPacket), 0,
+                                     (struct sockaddr *)&serverAddress, &serverAddressSize);
         if (bytesRead == -1) {
             perror("Erreur lors de la réception du paquet de données");
-            close(clientSocket);
+            close(sockfd);
             exit(EXIT_FAILURE);
         }
 
         // Traitement des données reçues (bytesRead contient le nombre d'octets reçus)
 
         // Envoi de l'acquittement
-        sendACK(clientSocket, &serverAddress, blockNumber);
+        sendACK(sockfd, &serverAddress, blockNumber);
 
         // Si le paquet était le dernier, terminer la boucle
         if (bytesRead < MAX_BUFFER_SIZE) {
@@ -50,9 +49,54 @@ int main() {
         // Incrémentation du numéro de bloc pour le prochain acquittement
         blockNumber++;
     }
+}
+
+void buildRRQ(char *rrqPacket, const char *fileName) {
+    // Opcode pour une requête de lecture
+    rrqPacket[0] = 0x00;
+    rrqPacket[1] = 0x01;
+
+    // Nom du fichier à lire
+    strcpy(rrqPacket + 2, fileName);
+
+    // Mode de transfert (octet en général pour TFTP)
+    strcpy(rrqPacket + 2 + strlen(fileName) + 1, "octet");
+}
+
+void sendACK(int sockfd, struct sockaddr_in *serverAddress, uint16_t blockNumber) {
+    char ackPacket[4];
+    ackPacket[0] = 0x00;
+    ackPacket[1] = 0x04;
+    ackPacket[2] = (blockNumber >> 8) & 0xFF; // octet de poids fort
+    ackPacket[3] = blockNumber & 0xFF;        // octet de poids faible
+
+    sendto(sockfd, ackPacket, sizeof(ackPacket), 0, (struct sockaddr *)serverAddress, sizeof(*serverAddress));
+}
+
+int main(int argc, char **argv) {
+    // ... (Code principal)
+
+    // Connexion au serveur
+    int sockfd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+    if (sockfd == -1) {
+        perror("Erreur lors de la création du socket");
+        exit(EXIT_FAILURE);
+    }
+
+    if (connect(sockfd, result->ai_addr, result->ai_addrlen) == -1) {
+        perror("Erreur lors de la connexion au serveur");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+    // Envoi de la requête RRQ
+    sendRRQ(sockfd, argv[3]);
+
+    // Réception du fichier (peut être constitué d'un ou plusieurs paquets)
+    receiveFile(sockfd);
 
     // Fermeture du socket
-    close(clientSocket);
+    close(sockfd);
 
     return 0;
 }
