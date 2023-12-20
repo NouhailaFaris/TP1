@@ -93,9 +93,7 @@ void connectToServer(char *hostname) {
     printf("Connected to the server!\n");
 
     freeaddrinfo(result);
-
-    // Utilisez 'sockfd' pour la communication ou effectuez d'autres opérations
-    // N'oubliez pas de fermer le socket lorsque vous avez terminé
+    
     close(sockfd);
 }
 
@@ -103,7 +101,13 @@ int main(int argc, char **argv) {
     checkFormat(argc, argv);
     getInfo(argv[2]);
     connectToServer(argv[2]);
-
+    // Créer un socket pour la communication
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd == -1) {
+        perror("Erreur lors de la création du socket");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
     // Boucle de réception des paquets de données
     uint16_t blockNumber = 1; // Commence à 1 pour le premier paquet
 
@@ -112,6 +116,7 @@ int main(int argc, char **argv) {
     struct sockaddr_in serverAddress;
     socklen_t serverAddressSize = sizeof(serverAddress);
 
+  
     while (1) {
         // Réception du paquet de données
         ssize_t bytesRead = recvfrom(sockfd, dataPacket, sizeof(dataPacket), 0,
@@ -121,9 +126,6 @@ int main(int argc, char **argv) {
             close(sockfd);
             exit(EXIT_FAILURE);
         }
-
-        // Traitement des données reçues (bytesRead contient le nombre d'octets reçus)
-
         // Envoi de l'acquittement
         sendACK(sockfd, &serverAddress, blockNumber);
 
