@@ -80,12 +80,12 @@ void connectToServer(char *hostname) {
 
     sockfd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
     if (sockfd == -1) {
-        perror("socket creation failed");
+        perror("Erreur lors de la création du socket");
         exit(EXIT_FAILURE);
     }
 
     if (connect(sockfd, result->ai_addr, result->ai_addrlen) == -1) {
-        perror("connection failed");
+        perror("Erreur lors de la connexion au serveur");
         close(sockfd);
         exit(EXIT_FAILURE);
     }
@@ -93,7 +93,8 @@ void connectToServer(char *hostname) {
     printf("Connected to the server!\n");
 
     freeaddrinfo(result);
-    
+
+    // Fermeture du socket
     close(sockfd);
 }
 
@@ -101,6 +102,7 @@ int main(int argc, char **argv) {
     checkFormat(argc, argv);
     getInfo(argv[2]);
     connectToServer(argv[2]);
+
     // Créer un socket pour la communication
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == -1) {
@@ -108,6 +110,7 @@ int main(int argc, char **argv) {
         close(sockfd);
         exit(EXIT_FAILURE);
     }
+
     // Boucle de réception des paquets de données
     uint16_t blockNumber = 1; // Commence à 1 pour le premier paquet
 
@@ -116,7 +119,6 @@ int main(int argc, char **argv) {
     struct sockaddr_in serverAddress;
     socklen_t serverAddressSize = sizeof(serverAddress);
 
-  
     while (1) {
         // Réception du paquet de données
         ssize_t bytesRead = recvfrom(sockfd, dataPacket, sizeof(dataPacket), 0,
@@ -126,6 +128,14 @@ int main(int argc, char **argv) {
             close(sockfd);
             exit(EXIT_FAILURE);
         }
+
+        // Afficher le contenu du paquet de données
+        printf("Received data packet:\n");
+        for (ssize_t i = 0; i < bytesRead; ++i) {
+            printf("%02x ", dataPacket[i]);
+        }
+        printf("\n");
+
         // Envoi de l'acquittement
         sendACK(sockfd, &serverAddress, blockNumber);
 
