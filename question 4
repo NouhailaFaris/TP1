@@ -4,28 +4,114 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netinet/in.h>
 
 #define MAX_BUFFER_SIZE 516 // Taille maximale d'un paquet TFTP
+#define NOT_ENOUGH_ARGS "Not enough argument\n"
+#define TOO_MUCH_ARGUMENTS "Too much arguments\n"
+#define ERROR_STATUS "Status error :"
 
-// ... (Déclarations et constantes)
+#define IP_msg "server ip : "
+#define PRT ":"
+#define PORT "69"
 
-void sendRRQ(int sockfd, const char *fileName) {
-    // Construire une requête RRQ
-    char rrqPacket[MAX_BUFFER_SIZE];
-    buildRRQ(rrqPacket, fileName);
+// Fonction pour envoyer un acquittement (ACK)
+void sendACK(int sockfd, struct sockaddr_in *serverAddress, uint16_t blockNumber) {
+    char ackPacket[4];
+    ackPacket[0] = 0x00;
+    ackPacket[1] = 0x04;
+    ackPacket[2] = (blockNumber >> 8) & 0xFF; // octet de poids fort
+    ackPacket[3] = blockNumber & 0xFF;        // octet de poids faible
 
-    // Envoyer la requête au serveur
-    send(sockfd, rrqPacket, strlen(rrqPacket), 0);
+    sendto(sockfd, ackPacket, sizeof(ackPacket), 0, (struct sockaddr *)serverAddress, sizeof(*serverAddress));
 }
 
-void receiveFile(int sockfd) {
-    // Variables pour la réception des données
+char bufferServerName[128];
+char fileName[128];
+char ipAdress[128];
+int terminal = STDOUT_FILENO;
+struct addrinfo hints;
+struct addrinfo *result = NULL;
+int status;
+
+void checkFormat(int argc, char **argv) {
+    if (argc > 4) {
+        write(terminal, TOO_MUCH_ARGUMENTS, sizeof(TOO_MUCH_ARGUMENTS));
+        close(terminal);
+        exit(EXIT_FAILURE);
+    }
+    if (argc < 4) {
+        write(terminal, NOT_ENOUGH_ARGS, sizeof(NOT_ENOUGH_ARGS));
+        close(terminal);
+        exit(EXIT_FAILURE);
+    }
+}
+
+void getInfo(char *hostname) {
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_protocol = IPPROTO_UDP;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_family = AF_INET;
+
+    status = getaddrinfo(hostname, PORT, &hints, &result);
+    if (status != 0) {
+        write(terminal, ERROR_STATUS, sizeof(ERROR_STATUS));
+        write(terminal, gai_strerror(status), sizeof(gai_strerror(status)));
+        write(terminal, "\n", 1);
+        exit(EXIT_FAILURE);
+    }
+
+    status = getnameinfo(result->ai_addr, result->ai_addrlen, ipAdress, 128, bufferServerName, 128, NI_NUMERICHOST | NI_NUMERICSERV);
+
+    if (status != 0) {
+        write(terminal, gai_strerror(status), sizeof(gai_strerror(status)));
+        write(terminal, "\n", 1);
+    }
+
+    write(terminal, IP_msg, sizeof(IP_msg));
+    write(terminal, ipAdress, strlen(ipAdress));
+    write(terminal, PRT, sizeof(PRT));
+    write(terminal, bufferServerName, strlen(bufferServerName));
+    write(terminal, "\n", 1);
+}
+
+void connectToServer(char *hostname) {
+    int sockfd;
+
+    sockfd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+    if (sockfd == -1) {
+        perror("socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (connect(sockfd, result->ai_addr, result->ai_addrlen) == -1) {
+        perror("connection failed");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Connected to the server!\n");
+
+    freeaddrinfo(result);
+
+    // Utilisez 'sockfd' pour la communication ou effectuez d'autres opérations
+    // N'oubliez pas de fermer le socket lorsque vous avez terminé
+    close(sockfd);
+}
+
+int main(int argc, char **argv) {
+    checkFormat(argc, argv);
+    getInfo(argv[2]);
+    connectToServer(argv[2]);
+
+    // Boucle de réception des paquets de données
+    uint16_t blockNumber = 1; // Commence à 1 pour le premier paquet
+
+    // Déclaration des variables pour la réception des données
     char dataPacket[MAX_BUFFER_SIZE];
     struct sockaddr_in serverAddress;
     socklen_t serverAddressSize = sizeof(serverAddress);
 
-    // Boucle de réception des paquets de données
-    uint16_t blockNumber = 1;
     while (1) {
         // Réception du paquet de données
         ssize_t bytesRead = recvfrom(sockfd, dataPacket, sizeof(dataPacket), 0,
@@ -49,54 +135,8 @@ void receiveFile(int sockfd) {
         // Incrémentation du numéro de bloc pour le prochain acquittement
         blockNumber++;
     }
-}
-
-void buildRRQ(char *rrqPacket, const char *fileName) {
-    // Opcode pour une requête de lecture
-    rrqPacket[0] = 0x00;
-    rrqPacket[1] = 0x01;
-
-    // Nom du fichier à lire
-    strcpy(rrqPacket + 2, fileName);
-
-    // Mode de transfert (octet en général pour TFTP)
-    strcpy(rrqPacket + 2 + strlen(fileName) + 1, "octet");
-}
-
-void sendACK(int sockfd, struct sockaddr_in *serverAddress, uint16_t blockNumber) {
-    char ackPacket[4];
-    ackPacket[0] = 0x00;
-    ackPacket[1] = 0x04;
-    ackPacket[2] = (blockNumber >> 8) & 0xFF; // octet de poids fort
-    ackPacket[3] = blockNumber & 0xFF;        // octet de poids faible
-
-    sendto(sockfd, ackPacket, sizeof(ackPacket), 0, (struct sockaddr *)serverAddress, sizeof(*serverAddress));
-}
-
-int main(int argc, char **argv) {
-    // ... (Code principal)
-
-    // Connexion au serveur
-    int sockfd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-    if (sockfd == -1) {
-        perror("Erreur lors de la création du socket");
-        exit(EXIT_FAILURE);
-    }
-
-    if (connect(sockfd, result->ai_addr, result->ai_addrlen) == -1) {
-        perror("Erreur lors de la connexion au serveur");
-        close(sockfd);
-        exit(EXIT_FAILURE);
-    }
-
-    // Envoi de la requête RRQ
-    sendRRQ(sockfd, argv[3]);
-
-    // Réception du fichier (peut être constitué d'un ou plusieurs paquets)
-    receiveFile(sockfd);
 
     // Fermeture du socket
     close(sockfd);
-
     return 0;
 }
