@@ -8,7 +8,7 @@
 #include <memory.h>
 #include <string.h>
 
-// Macros
+//define error msg
 
 #define NOT_ENOUGH_ARGS "Not enough argument\n"
 #define TOO_MUCH_ARGUMENTS "too much arguments\n"
@@ -52,7 +52,7 @@ void checkFormat(int argc, char ** argv){
     }
 }
 
-
+// Function to obtain information about the server 
 void getInfo(char * hostname, struct addrinfo hints){
 
     memset(&hints,0,sizeof(hints));
@@ -61,7 +61,7 @@ void getInfo(char * hostname, struct addrinfo hints){
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_family=AF_INET;
 
-
+// Get server address information
     status = getaddrinfo(hostname,PORT,&hints,&result);
 
     if(status != 0){
@@ -71,7 +71,7 @@ void getInfo(char * hostname, struct addrinfo hints){
         exit(EXIT_FAILURE);
     }
 
-    // Call getaddrinfo to obtain the server's address
+    // Get readable information about the server 
     status = getnameinfo(result->ai_addr,result->ai_addrlen,ipAdress,128,bufferServerName,128, NI_NUMERICHOST | NI_NUMERICSERV);
 
     if(status !=0){
@@ -94,7 +94,7 @@ void getInfo(char * hostname, struct addrinfo hints){
 int main(int argc,char ** argv){
 
     checkFormat(argc,argv);
-
+//Call the checkformat to validate the arguments 
     getInfo(argv[2], hints);
 
     close(terminal);
